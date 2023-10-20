@@ -1,0 +1,321 @@
+---
+title: "关于链家二手房商业分析报告"
+author:
+  - 瞿芬芳
+
+documentclass: ctexart
+keywords:
+  - 中文
+  - R Markdown
+output:
+  rticles::ctex:
+    fig_caption: yes
+    number_sections: yes
+    toc: yes
+---
+
+------------------------------------------------------------------------
+---
+```{r setup, include = FALSE,echo = FALSE}
+#配置环境
+knitr::opts_chunk$set(echo = FALSE,error = FALSE, warning = FALSE, message = FALSE,
+                      out.width = "100%", split = FALSE, fig.align = "center")
+#load library
+library(tidyverse)
+library(kableExtra)
+library(lubridate)
+library(scales)
+library(plotly)
+library(patchwork)
+library(ggrepel)
+library(pander)
+library(modelr)
+library(showtext)
+showtext_auto(enable = TRUE)
+lj_wuhan<- read.csv("C:/Users/f_f_q/Desktop/MEM Assignment_qff/2023-09-12_cleaned.csv")
+```
+# 一.主要发现：
+发现1：武汉二手房数据有如下特征
+（1）房屋总价：最低价10.60万元,最高价1,380.00万元,中位数136.00万元,平均数154.80万元，数据分布呈右偏分布。
+（2）房屋单价：最低价1,771元/$m^2$，最高价44,656元/$m^2$，中位数14,309元/$m^2$，平均数元15,110/$m^2$，数据分布呈现右偏分布，因为房屋面积不同，整体单价的右偏幅度较房屋总价较小。
+（3）建筑面积：最小面积22.77$m^2$##最大面积588.66$m^2$，中位数95.46$m^2$，平均数100.67$m^2$，呈现右偏分布。
+（4）其他二手房数据特征：
+--房间数：以2~3居室居多
+--客厅数：以1~2客厅居多
+--楼栋整层数：平均楼层为24层的中层建筑
+
+发现2：二手房面积集中在100$m^2$；以三室两厅房型为主。
+
+发现3：装修过的二手房占比近80%，其中精装数占比50%以上。
+
+发现4：建筑类型为板楼类型最多1781套，其次是板塔结合615套。
+
+发现5：在售二手房数排名前10区域显示，远城区二手房数量相对较多。而排名后5区域显示，吴家山/沙湖/CBD西北湖/沌口/团结大道二手房数量相对少。
+
+发现6：武汉在售二手房地区房屋均价在15000~20000元间;
+--均价最高值：中北路约30000元；
+--均价最低值：阳逻约5000元。
+
+发现7：面积对单价有如下影响
+--面积约在120$m^2$内的房屋，面积的增长对单价影响较平稳；
+--面积大于350$m^2$的房屋，单价随面积增加略有下降；
+--面积在120$m^2$至350$m^2$区间，单价随面积上升幅度较大；
+--分析极值点的离散情况,高房价存在个别极值，说明离散度较高。
+
+发现8：区域房屋单价分布情况，其中光谷、青山、王家湾等区域房屋单价离散度较高；盘龙城、四新等区域房屋单价集中性度较高。
+
+# 二.数据介绍及整体结构
+
+## 1.本报告**链家**数据获取方式如下：
+报告人在2023年9月12日获取了[链家武汉二手房网站](https://wh.lianjia.com/ershoufang/)数据。
+    
+--链家二手房网站默认显示100页，每页30套房产，因此本数据包括3000套房产信息；
+    
+--数据包括了页面可见部分的文本信息，具体字段及说明见作业说明。
+
+**说明**数据仅用于教学；由于不清楚链家数据的展示规则，因此数据可能并不是武汉二手房市场的随机抽样，结论很可能有很大的偏差，甚至可能是错误的。
+
+## 2.数据概览
+
+| 变量                  | 解释                                     |
+|-----------------------|------------------------------------------|
+| **property_name**     | 小区名字                                 |
+| **property_region**   | 所处区域                                 |
+| **price_ttl**         | 房屋总价，单位万元                       |
+| **price_sqm**         | 房屋单价，单位元                         |
+| **bedrooms**          | 房间数                                   |
+| **livingrooms**       | 客厅数                                   |
+| **building_area**     | 建筑面积                                 |
+| **directions1**       | 房屋主要朝向                             |
+| **directions2**       | 房屋次要朝向                             |
+| **decoration**        | 装修状况                                 |
+| **property_t_height** | 楼栋总层数                               |
+| **property_height**   | 房屋在所在楼栋所处位置，取值为高中低     |
+| **property_style**    | 建筑形式，如板楼、塔楼等                 |
+| **followers**         | 在该二手房网站的关注人数                 |
+| **near_subway**       | 是否靠近地铁                             |
+| **if_2y**             | 产证是否满2年                            |
+| **has_key**           | 中介是否有钥匙，标注"随时看房"表示有钥匙 |
+| **vr**                | 是否支持VR看房                           |
+
+## 3.数据表前10行示例如下：
+数据表（lj_wuhan)共包括`r names(lj_wuhan)`等`r ncol(lj_wuhan)`个变量,共`r nrow(lj_wuhan)`行。
+
+```{r}
+lj_wuhan %>% 
+  head(10) %>%
+  kable(caption = "武汉链家二手房") %>% 
+  kable_styling()
+```
+
+## 4.数据整体结构
+```{r}
+glimpse(lj_wuhan)
+```
+
+# 三.数据清洗
+
+## 1.查看数据缺失情况并去重
+
+样本数据存在重复，去重后由原先样本数3000，得到实际可用样本数2515。大多数分类的数值缺失度较低，对数值分析影响较小。
+
+```{r}
+lj_wuhan <- distinct(lj_wuhan)
+pander(summary(is.na(lj_wuhan)))
+
+```
+## 2.查看各数据简短信息
+
+```{r}
+pander(summary(lj_wuhan))
+
+```
+**总结数据特征：**
+2023年9月12号链家武汉二手房数据特征：
+##（1）房屋总价：
+##最低价10.60万元。
+```{r}
+print(filter(lj_wuhan, price_ttl == "10.6"))
+```
+##最高价1,380.00万元。
+```{r}
+print(filter(lj_wuhan, price_ttl == "1380"))
+```
+##中位数136.00万元，平均数154.80万元，数据分布呈右偏分布。
+
+##（2）房屋单价
+##最低价1,771元/$m^2$
+```{r}
+print(filter(lj_wuhan, price_sqm == "1771"))
+```
+##最高价44,656元/$m^2$
+```{r}
+print(filter(lj_wuhan, price_sqm == "44656"))
+```
+##中位数14,309元/$m^2$，平均数元15,110/$m^2$，数据分布呈现右偏分布，因为房屋面积不同，整体单价的右偏幅度较房屋总价较小。
+
+##（3）建筑面积
+##最小面积22.77$m^2$
+```{r}
+print(filter(lj_wuhan, building_area == "22.77"))
+```
+##最大面积588.66$m^2$
+```{r}
+print(filter(lj_wuhan, building_area == "588.66"))
+```
+##中位数95.46$m^2$，平均数100.67$m^2$，呈现右偏分布。
+
+##（4）其他二手房数据特征：
+房间数：以2~3居室居多
+客厅数：以1~2客厅居多
+楼栋整层数：平均楼层为24层的中层建筑
+
+# 四.探索性研究
+
+## 1.二手房主要类型特征
+```{r}
+##面积分布
+ggplot(lj_wuhan) +
+  geom_histogram(aes(building_area), binwidth = 15) +
+  labs(title = "房屋面积分布",  x = "建筑面积",  y = "数量",  caption = "DataSource:lj") +
+  theme(plot.title = element_text(family = "TT Arial", face = "bold", color = "blue", size = 15, hjust = 0.5, vjust = 0,5))
+```
+```{r}
+##房间数量分布
+ggplot(lj_wuhan) +
+  geom_histogram(aes(bedrooms), bins = 30) 
+
+```
+```{r}
+##客厅数量分布
+ggplot(lj_wuhan) +
+  geom_histogram(aes(livingrooms)) 
+```
+**结论**：
+--二手房面积集中在100$m^2$；
+--以三室两厅房型为主。
+
+##2.房屋装修情况
+```{r}
+decoration_status <- lj_wuhan %>%
+  group_by(decoration) %>%
+  summarise(sum_decoration = n())
+
+rate <- function(x){
+  j <- c(0)
+  sum_count <- sum(x)
+  for (i in 1:length(x)){
+    j[i] <- round(x[i]/sum_count*100, 2)
+  }
+  return(j)
+}
+label_decoration <- rate(decoration_status$sum_decoration) 
+pie(decoration_status$sum_decoration, paste(decoration_status$decoration, label_decoration, "%"), radius = 1.0, clockwise=T, main = "房屋装修情况", cex = 1.0)
+```
+**结论**：装修过的二手房占比近80%，其中精装数占比50%以上。
+
+##3.楼房类型分布
+```{r}
+property_style <- lj_wuhan %>%
+  group_by(property_style) %>%
+  summarise(property_style_status = n())
+ggplot(property_style) +
+  geom_bar(aes(x=property_style, y=property_style_status), stat = "identity" )
+```
+```{r}
+print(property_style)
+```
+**结论**：
+--板楼类型最多1781套，其次是板塔结合615套。
+
+## 4.探索问题
+###问题1：二手房有何区域分布特征？
+```{r}
+# 对于二手房所在区域进行分组,关注前10数据
+property_region_count <- lj_wuhan%>% 
+  group_by(property_region) %>% 
+  summarise(sum_property = n())
+
+property_region_count <- property_region_count %>% 
+  arrange(desc(sum_property))
+property_region_count <- property_region_count[1:10, ]
+
+ggplot(data=property_region_count) +
+  geom_bar(mapping=aes(x = reorder(property_region, sum_property), y = sum_property,color =  property_region), stat = 'identity')
+```
+```{r}
+print(property_region_count)
+##**结论**：在售二手房数排名前10区域显示，远城区二手房数量相对较多。
+```
+
+```{r}
+# 对于二手房所在区域进行分组,关注后5名数据
+property_region_count <- lj_wuhan %>% 
+  group_by(property_region) %>% 
+  summarise(sum_property = n())
+
+property_region_count <- property_region_count %>% 
+  arrange(order(sum_property))
+property_region_count <- property_region_count[5:1, ]
+
+ggplot(data=property_region_count) +
+  geom_bar(mapping=aes(x = reorder(property_region, sum_property), y = sum_property,color =  property_region), stat = 'identity')
+```
+```{r}
+print(property_region_count)
+##**结论**：在售二手房数排名后5区域显示，吴家山/沙湖/CBD西北湖/沌口/团结大道二手房数量相对少。
+```
+## 问题2：区域对房屋均价的影响？
+```{r}
+###区域房屋均价分布情况
+price_sqm_mean <- lj_wuhan %>% 
+  group_by(property_region) %>% 
+  summarise(mean_region = mean(price_sqm))
+
+ggplot(price_sqm_mean) +
+  geom_bar(aes(x = mean_region, y = reorder(property_region,mean_region),color =  property_region,binwidth = 20), stat = "identity")
+```
+**结论**：
+--武汉在售二手房地区房屋均价在15000~20000元间;
+--均价最高值：中北路约30000元；
+--均价最低值：阳逻约5000元。
+
+##问题3：房屋面积对单价的影响
+
+```{r}
+lj_wuhan %>% 
+  ggplot() +
+    geom_point(aes(x = building_area, y = price_sqm, color =  property_region, group = property_region)) +
+    theme(legend.position = "none") +
+    geom_smooth(aes(x = building_area, y =price_sqm ))
+    
+```
+**结论**：
+--面积约在120$m^2$内的房屋，面积的增长对单价影响较平稳；
+--面积大于350$m^2$的房屋，单价随面积增加略有下降；
+--面积在120$m^2$至350$m^2$区间，单价随面积上升幅度较大；
+--分析极值点的离散情况,高房价存在个别极值，说明离散度较高。
+
+## 问题4：区域房屋单价分布情况
+
+```{r}
+# 查看区域房屋单价的箱线图
+property_name <- arrange(property_region_count, desc(sum_property))
+property_name <- property_name[1:30, ]
+property_names <- property_name$property_region
+lj_wuhan_top30 <- dplyr::filter(lj_wuhan, property_region %in% property_names)
+ggplot(lj_wuhan_top30) +
+  geom_boxplot(aes(x = property_region, y = price_sqm)) +
+  labs(title = "前top30区域房屋单价分布情况",  x = "所属区域",  y = "房屋单价",  caption = "DataSource: lj_wuhan") +
+  theme(axis.text.x = element_text(family = "TT Arial",face = "bold", color = "black", size = 12, angle = 90), 
+        plot.title = element_text(family = "TT Arial",face = "bold", color = "blue", size = 12, hjust = 0.5, vjust = 0,5))
+```
+**结论**：其中光谷、青山、王家湾等区域房屋单价离散度较高；盘龙城、四新等区域房屋单价集中性度较高。
+
+# 五.决策建议：
+
+##1，房地产商：从二手房面积方面来看，集中在100$m^2$，以三室两厅房型为主，此类房型因为交易度最活跃，相应可以投入更多建设。从建筑类型来看，二手房板楼类型更多，因为其南北通透户型方正，交易度更活跃，相应可以投入更多建设。
+
+##2，卖家： 面积大于350$m^2$的房屋，单价随面积增加略有下降，因此该面积范围内的住房不适宜在二手房市场流通。
+
+##3，买家：面积约在120$m^2$内的房屋，面积的增长对单价影响较平稳，而面积在120$m^2$至350$m^2$区间，单价随面积上升幅度较大，因此买家在购买面积超过120$m^2$的二手房，尽量按实际需求购买。针对区域房屋单价分布情况，如有在光谷、青山、王家湾等区域购房需求，考虑房屋单价离散度较高，应多多比价选择性价比更高的房屋。
