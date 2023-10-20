@@ -13,7 +13,6 @@ output:
     number_sections: yes
     toc: yes
 ---
-
 ------------------------------------------------------------------------
 ---
 ```{r setup, include = FALSE,echo = FALSE}
@@ -301,16 +300,16 @@ lj_wuhan %>%
 ```{r}
 # 查看区域房屋单价的箱线图
 property_name <- arrange(property_region_count, desc(sum_property))
-property_name <- property_name[1:30, ]
+property_name <- property_name[1:5, ]
 property_names <- property_name$property_region
-lj_wuhan_top30 <- dplyr::filter(lj_wuhan, property_region %in% property_names)
-ggplot(lj_wuhan_top30) +
+lj_wuhan_top5 <- dplyr::filter(lj_wuhan, property_region %in% property_names)
+ggplot(lj_wuhan_top5) +
   geom_boxplot(aes(x = property_region, y = price_sqm)) +
-  labs(title = "前top30区域房屋单价分布情况",  x = "所属区域",  y = "房屋单价",  caption = "DataSource: lj_wuhan") +
+  labs(title = "前top5区域房屋单价分布情况",  x = "所属区域",  y = "房屋单价",  caption = "DataSource: lj_wuhan") +
   theme(axis.text.x = element_text(family = "TT Arial",face = "bold", color = "black", size = 12, angle = 90), 
         plot.title = element_text(family = "TT Arial",face = "bold", color = "blue", size = 12, hjust = 0.5, vjust = 0,5))
 ```
-**结论**：其中光谷、青山、王家湾等区域房屋单价离散度较高；盘龙城、四新等区域房屋单价集中性度较高。
+**结论**：其中CBD西北湖/唐家墩等区域房屋单价离散度较高；汉南/后湖等区域房屋单价集中性度较高。
 
 # 五.决策建议：
 
@@ -318,4 +317,4 @@ ggplot(lj_wuhan_top30) +
 
 ##2，卖家： 面积大于350$m^2$的房屋，单价随面积增加略有下降，因此该面积范围内的住房不适宜在二手房市场流通。
 
-##3，买家：面积约在120$m^2$内的房屋，面积的增长对单价影响较平稳，而面积在120$m^2$至350$m^2$区间，单价随面积上升幅度较大，因此买家在购买面积超过120$m^2$的二手房，尽量按实际需求购买。针对区域房屋单价分布情况，如有在光谷、青山、王家湾等区域购房需求，考虑房屋单价离散度较高，应多多比价选择性价比更高的房屋。
+##3，买家：面积约在120$m^2$内的房屋，面积的增长对单价影响较平稳，而面积在120$m^2$至350$m^2$区间，单价随面积上升幅度较大，因此买家在购买面积超过120$m^2$的二手房，尽量按实际需求购买。针对区域房屋单价分布情况，其中CBD西北湖/唐家墩等区域房屋单价离散度较高；汉南/后湖等区域房屋单价集中性度较高，应多多比价选择性价比更高的房屋。
